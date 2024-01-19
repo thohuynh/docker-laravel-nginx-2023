@@ -1,0 +1,149 @@
+version: '3'
+
+networks:
+  carbonix:
+    driver: 'bridge'
+
+services:
+  app:
+    build:
+      context: docker/app
+    ports:
+      - ${APP_PORT}:80
+    volumes:
+      - ${APP_PATH}:/var/www/html
+      - ./docker/app/logs/nginx:/var/log/nginx
+      - ./docker/app/.composer:/root/.composer
+      - ./docker/app/resolv.conf:/etc/resolv.conf
+    depends_on:
+      - postgres
+    networks:
+      carbonix:
+        aliases:
+          - api.carbonix.localhos
+          - api-docs.carbonix.localhost
+            
+  app_faq:
+    build:
+      context: docker/app_faq
+    ports:
+      - ${APP_FAQ_PORT}:80
+    volumes:
+      - ${APP_PATH}/faq:/var/www/html
+      - ./docker/app_faq/logs/nginx:/var/log/nginx
+      - ./docker/app_faq/.composer:/root/.composer
+      - ./docker/app_faq/resolv.conf:/etc/resolv.conf
+    depends_on:
+      - mysql
+    networks:
+      carbonix:
+        aliases:
+          - faq.carbonix.localhost
+  
+  mysql:
+    image: mysql:8.0
+    volumes:
+      - './docker/mysql/db/data:/var/lib/mysql'
+      - './docker/mysql/db/my.cnf:/etc/mysql/conf.d/my.cnf'
+      - './docker/mysql/db/sql:/docker-entrypoint-initdb.d'
+    container_name: faq_sql
+    restart: always
+    command: mysqld --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_as_cs
+    ports:
+      - 3346:3306
+    environment:
+      MYSQL_DATABASE: carbonix
+      MYSQL_USER: carbonix
+      MYSQL_PASSWORD: carbonix
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_RANDOM_ROOT_PASSWORD: "false"
+      MYSQL_ROOT_PASSWORD: carbonix
+    networks:
+      - carbonix
+
+#  app_php_81:
+#    build:
+#      context: docker/app_php_81
+#    ports:
+#      - ${APP_PHP_81_PORT}:80
+#    volumes:
+#      - ${APP_PATH}:/var/www/html
+#      - ./docker/app_php_81/logs/nginx:/var/log/nginx
+#      - ./docker/app_php_81/.composer:/root/.composer
+#      - ./docker/app_php_81/resolv.conf:/etc/resolv.conf
+#    depends_on:
+#      - postgreslabel
+#    networks:
+#      carbonix:
+#        aliases:
+#          - api.carbonix.localhost
+#          - api-docs.carbonix.localhost
+
+  postgres:
+    build:
+      context: docker/postgres
+    environment:
+      - POSTGRES_USER=carbonix
+      - POSTGRES_PASSWORD=carbonix
+      - POSTGRES_DB=carbonix1
+    volumes:
+      - ./docker/postgres/data:/var/lib/postgresql/data
+    ports:
+      - ${POSTGRES_PORT}:5432
+    networks:
+      - carbonix
+
+  postgres_testing:
+    build:
+      context: docker/postgres_testing
+    environment:
+      - POSTGRES_USER=carbonix
+      - POSTGRES_PASSWORD=carbonix
+      - POSTGRES_DB=carbonix
+    volumes:
+      - ./docker/postgres_testing/data:/var/lib/postgresql/data
+    ports:
+      - 15433:5432
+    networks:
+      - carbonix
+
+  postgres_testing_prod:
+    build:
+      context: docker/postgres_testing_prod
+    environment:
+      - POSTGRES_USER=carbonix
+      - POSTGRES_PASSWORD=carbonix
+      - POSTGRES_DB=carbonix
+    volumes:
+      - ./docker/postgres_testing_pro:/var/lib/postgresql/data
+    ports:
+      - 15435:5432
+    networks:
+      - carbonix
+
+  redis:
+    image: redis:6.2-alpine
+    command: redis-server --requirepass secret
+    ports:
+      - ${REDIS_PORT}:6379
+    volumes:
+      - ./docker/redis/data:/var/lib/redis
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - carbonix
+
+#  localstack:
+#    image: localstack/localstack:latest
+#    environment:
+#      - SERVICES=s3
+#      - DEFAULT_REGION=us-west-2
+#      - DATA_DIR=/tmp/localstack/data
+#    ports:
+#      - ${LOCALSTACK_PORT}:4566
+#    volumes:
+#      - ./docker/localstack/data:/tmp/localstack
+#      - ./docker/localstack/docker-entrypoint-initaws.d:/docker-entrypoint-initaws.d
+#    networks:
+#      carbonix:
+#        aliases:
+#          - carbonix.localhost
